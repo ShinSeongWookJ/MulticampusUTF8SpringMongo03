@@ -1,0 +1,109 @@
+package com.mongo.melon.mapper;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+
+import javax.inject.Inject;
+
+import org.bson.Document;
+import org.bson.conversions.Bson;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.stereotype.Repository;
+
+import com.mongo.melon.domain.MelonVO;
+import com.mongodb.client.AggregateIterable;
+import com.mongodb.client.MongoCollection;
+
+@Repository
+public class MelonMapperImpl implements MelonMapper {
+	
+	@Inject
+	private MongoTemplate mTemplate;
+
+	@Override
+	public boolean createCollection(String colName) throws Exception {
+		
+		return false;
+	}
+
+	@Override
+	public int insertMelon(List<MelonVO> mList, String colName) throws Exception {
+		System.out.println(colName+">>>>>");
+		Collection<MelonVO> arr=mTemplate.insert(mList, colName);
+		return arr.size();		
+	}
+
+	@Override
+	public List<MelonVO> getMelonList(String colName) throws Exception {
+		// TODO Auto-generated method stub
+		return this.mTemplate.findAll(MelonVO.class,colName);
+	}
+	/*
+	 * db.getCollection("Melon_20221216").find({})
+// Requires official MongoShell 3.6+
+db = db.getSiblingDB("mydb");
+db.getCollection("Melon_20221216").aggregate(
+    [
+        { 
+            "$group" : { 
+                "_id" : { 
+                    "singer" : "$singer"
+                }, 
+                "count" : { 
+                    "$sum" : 1.0
+                }
+            }
+        }, 
+        { 
+            "$project" : { 
+                "singer" : "$_id.singer", 
+                "singerCnt" : "$count"
+            }
+        }, 
+        { 
+            "$match" : { 
+                "singerCnt" : { 
+                    "$gt" : 1.0
+                }
+            }
+        }
+    ], 
+    { 
+        "allowDiskUse" : false
+    }
+);
+
+
+	 * */
+	@Override
+	public List<MelonVO> getCntBySinger(String colName) throws Exception {
+		
+		List<? extends Bson> pipeline=Arrays.asList(new Document().append("$group", 
+				new Document().append("_id", new Document().append("singer", "$singer")).append("count", new Document().append("$sum", 1))),
+				new Document().append("$project", 
+						new Document().append("singer", "$_id.singer").append("singerCnt", "$count").append("_id", 0) ),
+				new Document().append("$sort", new Document().append("singerCnt", -1)));
+		MongoCollection<Document> col=this.mTemplate.getCollection(colName);
+		AggregateIterable<Document> cr=col.aggregate(pipeline).allowDiskUse(true);
+		List<MelonVO> arrList=new ArrayList<>();
+		for(Document doc:cr) {
+			if(doc==null) doc=new Document();
+			String singer=doc.getString("singer");
+			int cnt=doc.getInteger("singerCnt", 0);
+			MelonVO vo=new MelonVO();
+			vo.setSinger(singer);
+			vo.setCntBySinger(cnt);
+			arrList.add(vo);
+		}
+		return arrList;
+	}
+
+	@Override
+	public List<MelonVO> getMelonListBySinger(String colName, String singer) throws Exception {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+}
